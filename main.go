@@ -3,15 +3,17 @@ package main
 import (
 	"fmt"
 	"github.com/go-redis/redis"
+	"github.com/gorilla/mux"
 	"github.com/speps/go-hashids"
 	"log"
+	"net/http"
 	"time"
 )
 
 func RedisConnect() *redis.Client {
 	rdbc := redis.NewClient(&redis.Options{
 		DB:       0,
-		Addr:     "172.XX.XXX.XXX:6379",
+		Addr:     "172.31.201.78:6379",
 		Password: "",
 	})
 	pong, err := rdbc.Ping().Result()
@@ -35,18 +37,30 @@ func GenerateShortIDurl(lenghIDurl int) string {
 	}
 	return urlId
 }
-
-func main() {
+func Redirect(w http.ResponseWriter, req *http.Request) {
 	rdbc := RedisConnect()
-	key := GenerateShortIDurl(5)
+	params := mux.Vars(req)
+	key := params["key"]
 	url, err := rdbc.Get(key).Result()
 	if err != nil {
 		log.Println(err)
 	}
+	fmt.Println(key, url)
+	http.Redirect(w, req, url, 301)
+}
 
-	if len(url) < 1 {
-		fmt.Println("Ничего не нашел", url)
-		fmt.Println(key)
-		rdbc.Set(key, "https://yandex.ru", 0).Result()
-	}
+func Create(w http.ResponseWriter, req *http.Request) {
+	rdbc := RedisConnect()
+	req.ParseForm()
+	url := req.Form["url"][0]
+	key := GenerateShortIDurl(5)
+	rdbc.Set(key, url, 0).Result()
+	fmt.Println(key, url)
+}
+
+func main() {
+	router := mux.NewRouter()
+	router.HandleFunc("/{key}", Redirect).Methods("GET")
+	router.HandleFunc("/create", Create).Methods("POST")
+	http.ListenAndServe(":3128", router)
 }
