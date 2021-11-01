@@ -23,6 +23,7 @@ func RedisConnect() *redis.Client {
 	return rdbc
 }
 
+// делать проверку на сбодность Ключа
 func GenerateShortIDurl(lenghIDurl int) string {
 	hd := hashids.NewData()
 	hd.MinLength = lenghIDurl
@@ -56,6 +57,7 @@ func Create(w http.ResponseWriter, req *http.Request) {
 	key := GenerateShortIDurl(5)
 	rdbc.Set(key, url, 0).Result()
 	fmt.Println(key, url)
+	// дописать отдачу в короткой ссылки в curl
 }
 
 func main() {
