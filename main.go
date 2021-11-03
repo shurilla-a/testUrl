@@ -25,6 +25,7 @@ func RedisConnect() *redis.Client {
 
 // делать проверку на сбодность Ключа
 func GenerateShortIDurl(lenghIDurl int) string {
+
 	hd := hashids.NewData()
 	hd.MinLength = lenghIDurl
 	h, err := hashids.NewWithData(hd)
@@ -36,6 +37,15 @@ func GenerateShortIDurl(lenghIDurl int) string {
 	if err != nil {
 		log.Println(urlId, err)
 	}
+	rdbc := RedisConnect()
+	urlId1, err := rdbc.Get(urlId).Result()
+	if err != nil {
+		log.Println(err)
+	}
+	if urlId1 == urlId {
+		GenerateShortIDurl(5)
+	}
+
 	return urlId
 }
 func Redirect(w http.ResponseWriter, req *http.Request) {
@@ -56,8 +66,9 @@ func Create(w http.ResponseWriter, req *http.Request) {
 	url := req.Form["url"][0]
 	key := GenerateShortIDurl(5)
 	rdbc.Set(key, url, 0).Result()
-	fmt.Println(key, url)
+	//fmt.Println(key, url)
 	// дописать отдачу в короткой ссылки в curl
+	fmt.Fprintln(w, "http://127.0.0.1:3128/"+key)
 }
 
 func main() {
