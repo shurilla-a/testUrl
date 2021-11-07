@@ -25,28 +25,32 @@ func RedisConnect() *redis.Client {
 
 // делать проверку на сбодность Ключа
 func GenerateShortIDurl(lenghIDurl int) string {
-
+	rdbc := RedisConnect()
+newgenerate:
 	hd := hashids.NewData()
 	hd.MinLength = lenghIDurl
-	h, err := hashids.NewWithData(hd)
-	if err != nil {
-		log.Println(h, err)
-	}
-	timeNow := time.Now()
-	urlId, err := h.Encode([]int{int(timeNow.Unix())})
-	if err != nil {
-		log.Println(urlId, err)
-	}
-	rdbc := RedisConnect()
-	urlId1, err := rdbc.Get(urlId).Result()
+	hesh, err := hashids.NewWithData(hd)
 	if err != nil {
 		log.Println(err)
 	}
-	if urlId1 == urlId {
-		GenerateShortIDurl(5)
+	timeNow := time.Now()
+	key, err := hesh.Encode([]int{int(timeNow.Unix())})
+	if err != nil {
+		log.Println(err)
+	}
+	value, err := rdbc.Get(key).Result()
+	if err == redis.Nil {
+		goto finish
+	} else if err != nil {
+		log.Println(err)
+	} else {
+		log.Println(value, "Зачение существует ")
+		goto newgenerate
 	}
 
-	return urlId
+finish:
+	defer rdbc.Close()
+	return key
 }
 func Redirect(w http.ResponseWriter, req *http.Request) {
 	rdbc := RedisConnect()
@@ -58,6 +62,7 @@ func Redirect(w http.ResponseWriter, req *http.Request) {
 	}
 	fmt.Println(key, url)
 	http.Redirect(w, req, url, 301)
+	defer rdbc.Close()
 }
 
 func Create(w http.ResponseWriter, req *http.Request) {
@@ -65,13 +70,14 @@ func Create(w http.ResponseWriter, req *http.Request) {
 	req.ParseForm()
 	url := req.Form["url"][0]
 	key := GenerateShortIDurl(5)
-	rdbc.Set(key, url, 0).Result()
+	rdbc.Set(key, url, 96*time.Hour).Result()
 	//fmt.Println(key, url)
 	// дописать отдачу в короткой ссылки в curl
 	fmt.Fprintln(w, "http://127.0.0.1:3128/"+key)
+	defer rdbc.Close()
 }
 
-func main() {
+func main11() {
 	router := mux.NewRouter()
 	router.HandleFunc("/{key}", Redirect).Methods("GET")
 	router.HandleFunc("/create", Create).Methods("POST")
